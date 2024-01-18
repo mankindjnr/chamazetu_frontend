@@ -1,20 +1,39 @@
 from django.shortcuts import render
 from django.http import HttpResponseRedirect
 from django.urls import reverse
+import jwt
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 import requests
+from decouple import config
 
 # Create your views here.
 def index(request):
     return render(request, 'chama/index.html')
 
+def validate_token(request):
+    try:
+        jwt.decode(request.COOKIES.get('access_token').split(' ')[1], config('JWT_SECRET') , algorithms=['HS256'])
+    except InvalidTokenError as e:
+        return HttpResponseRedirect(reverse('membersignin'))
+
+
 def memberdashboard(request):
     access_token = request.COOKIES.get('access_token')
+
+    # local validation of token
     current_user = requests.get('https://sj76vr3h-9000.euw.devtunnels.ms/users/me', headers={'Authorization': access_token})
 
     if current_user.status_code == 200:
         return render(request, 'chama/dashboard.html', {'current_user': current_user.json()})
     else:
         return HttpResponseRedirect(reverse('membersignin'))
+
+def profile(request):
+    response = validate_token(request)
+    if isinstance(response, HttpResponseRedirect):
+        return response
+
+    return render(request, 'chama/profile.html')
 
 def membersignin(request):
     if request.method == "POST":
