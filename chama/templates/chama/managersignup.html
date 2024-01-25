@@ -30,6 +30,12 @@
                     {% csrf_token %}
 
                     <div class="col-12">
+                      <label for="username" class="form-label">username</label>
+                      <input type="text" name="username" class="form-control" id="username" required>
+                      <div class="invalid-feedback">Please enter your username</div>
+                    </div>
+
+                    <div class="col-12">
                       <label for="email" class="form-label">Email</label>
                       <input type="email" name="email" class="form-control" id="email" required>
                       <div class="invalid-feedback">Please enter a valid Email adddress!</div>

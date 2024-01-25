@@ -8,6 +8,16 @@ import requests
 from decouple import config
 from supabase import create_client, Client
 
+from django.core.mail import send_mail, EmailMessage
+from django.contrib.sites.shortcuts import get_current_site
+from django.template.loader import render_to_string
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.encoding import force_bytes, force_str
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.contrib import messages
+from .activationToken import account_activation_token
+from chamaZetu import settings
+
 supabase_url: str = config('supabase_url')
 supabase_key: str = config('supabase_private_key')
 supabase: Client = create_client(supabase_url, supabase_key)
@@ -119,6 +129,7 @@ def managersignin(request):
 def membersignup(request):
     if request.method == "POST":
         email = request.POST['email']
+        username = request.POST['username']
         password = request.POST['password']
         confirm_password = request.POST['password2']
 
@@ -129,22 +140,68 @@ def membersignup(request):
         data = {
             'email': email,
             'password': password,
+            'username': username,
             'is_active': True,
             'is_manager': False,
             'is_member': True,
             'is_staff': False,
-            'is_verified': True, # later introduce email verification
+            'is_verified': False, # later introduce email verification
         }
         headers = {'Content-type': 'application/json'}
         response = requests.post('https://sj76vr3h-9400.euw.devtunnels.ms/users', data=json.dumps(data), headers=headers)
-        print(response.status_code)
-        if response.status_code == 200:
-            pass
+
+        if response.status_code == 201:
+            # successful signup - redirect to login page
+            current_user = response.json()['User'][0]
+            # -------------------email confirmation-------------------------------------
+            current_site = get_current_site(request)
+            mail_subject = 'Activate your chamaZetu account.'
+            message = render_to_string('chama/activateAccount.html', {
+                'user': username,
+                'domain': current_site.domain,
+                'uid': urlsafe_base64_encode(force_bytes(current_user['id'])),
+                'token': current_user['activation_code'],
+            })
+
+            from_email = settings.EMAIL_HOST_USER
+            to_email = [current_user['email']]
+
+            send_mail(mail_subject, message, from_email, to_email, fail_silently=True)
+            messages.success(request, 'Account created successfully. Please check your email to activate your account.')
+            #  -------------------email confirmation-------------------------------------
+            return HttpResponseRedirect(reverse('signin'))
 
     return render(request, 'chama/membersignup.html')
 
 def managersignup(request):
     return render(request, 'chama/managersignup.html')
+
+def verify_signup_token(request, token):
+    try:
+        jwt.decode(token, config('JWT_SECRET'), algorithms=['HS256'])
+        return True
+    except InvalidTokenError as e:
+        return HttpResponseRedirect(reverse('signin'))
+
+def activate(request, uidb64, token):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = supabase.table('users').select('*').eq('id', uid)
+        print("----------------user supa----")
+        print(user)
+        print()
+    except(TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and verify_signup_token(request, token):
+        # activate user and login
+        user['is_verified'] = True
+        supabase.table('users').update(user)
+        messages.success(request, 'Account activated successfully. You can now login.')
+        return HttpResponseRedirect(reverse('signin'))
+    else:
+        # if the token has expired, send another one
+        return HttpResponse('Activation link is invalid!')
 
 def dashboard(request):
     return render(request, 'chama/dashboard.html')
