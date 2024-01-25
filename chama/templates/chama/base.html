@@ -40,20 +40,17 @@
     
           <nav id="navbar" class="navbar order-last order-lg-0">
             <ul>
-              <li><a href="index.html" class="active">Home</a></li>
+              <li><a href="{% url 'index' %}" class="active">Home</a></li>
     
-              <li class="dropdown"><a href="#"><span>About</span> <i class="bi bi-chevron-down"></i></a>
+              <li><a href="{% url 'signin' 'manager' %}">manager login</a></li>
+              <li><a href="{% url 'signin' 'member' %}">member login</a></li>
+              <li><a href="about.html">Services</a></li>
+              <li class="dropdown"><a href="#"><span>signup</span> <i class="bi bi-chevron-down"></i></a>
                 <ul>
-                  <li><a href="about.html">About Us</a></li>
-                  <li><a href="team.html">Team</a></li>
-                  <li><a href="testimonials.html">Testimonials</a></li>
+                  <li><a href="{% url 'signup' 'manager' %}">Manager Account</a></li>
+                  <li><a href="{% url 'signup' 'member' %}">Member Account</a></li>
                 </ul>
               </li>
-    
-              <li><a href="services.html">Services</a></li>
-              <li><a href="{% url 'managersignin' %}">manager login</a></li>
-              <li><a href="{% url 'signin' %}">member login</a></li>
-              <li><a href="contact.html">Contact</a></li>
     
             </ul>
             <i class="bi bi-list mobile-nav-toggle"></i>

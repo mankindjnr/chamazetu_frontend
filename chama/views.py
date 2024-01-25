@@ -8,7 +8,7 @@ import requests
 from decouple import config
 from supabase import create_client, Client
 
-from django.core.mail import send_mail, EmailMessage
+from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
 from django.contrib.sites.shortcuts import get_current_site
 from django.template.loader import render_to_string
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -89,13 +89,15 @@ def profile(request):
 
     return render(request, 'chama/profile.html')
 
-def signin(request):
+def signin(request, role):
     if request.method == "POST":
         data = {
             'username': request.POST['email'],
             'password': request.POST['password'],
         }
 
+        #TODO: nclude a try and retry mechanism for the auth route call
+        # send the data to the auth server for verification and login
         response = requests.post('https://sj76vr3h-9400.euw.devtunnels.ms/users/login', data=data)
 
         if response.status_code == 200:
@@ -103,16 +105,15 @@ def signin(request):
             refresh_token = response.json()['refresh_token']
             current_user = request.POST['email']
 
-            # successful login - store token - redirect to dashboard
-            # check if user is a member or manager, redirect appropriately check from db if admin
-            position = supabase.table('users').select('is_manager').eq('email', current_user)
-            print("--------------------")
-            print(position)
-            print()
-            if position == True:
+            # check if user is a member or manager from db
+            position = supabase.table('users').select('is_manager').eq('email', current_user).execute()
+            is_manager = position.data[0]['is_manager']
+            if is_manager == True:
                     response = HttpResponseRedirect(reverse('managerdashboard'))
             else:
                 response = HttpResponseRedirect(reverse('memberdashboard'))
+
+            # successful login - store tokens - redirect to dashboard
             response.set_cookie('current_user', current_user, secure=True, httponly=True, samesite='Strict')
             response.set_cookie('access_token', f'Bearer {access_token}', secure=True, httponly=True, samesite='Strict')
             response.set_cookie('refresh_token', f'Bearer {refresh_token}', secure=True, httponly=True, samesite='Strict')
@@ -121,12 +122,10 @@ def signin(request):
             # unsuccessful login - redirect to login page
             return render(request, 'chama/login.html')
 
-    return render(request, 'chama/login.html')
+    page = f'chama/{role}login.html'
+    return render(request, page)
 
-def managersignin(request):
-    return render(request, 'chama/login.html', {'rank': rank})
-
-def membersignup(request):
+def signup(request, role): # implement the manager signup
     if request.method == "POST":
         email = request.POST['email']
         username = request.POST['username']
@@ -136,16 +135,23 @@ def membersignup(request):
         if password != confirm_password:
             return render(request, 'chama/membersignup.html')
 
-        # later add the is_* fields to the data sent to the backend
+        # checking if the user is a manager or member
+        is_manager = False
+        is_member = False
+        if role == 'manager':
+            is_manager = True
+        elif role == 'member':
+            is_member = True
+
         data = {
             'email': email,
             'password': password,
             'username': username,
             'is_active': True,
-            'is_manager': False,
-            'is_member': True,
+            'is_manager': is_manager,
+            'is_member': is_member,
             'is_staff': False,
-            'is_verified': False, # later introduce email verification
+            'is_verified': False,
         }
         headers = {'Content-type': 'application/json'}
         response = requests.post('https://sj76vr3h-9400.euw.devtunnels.ms/users', data=json.dumps(data), headers=headers)
@@ -153,7 +159,7 @@ def membersignup(request):
         if response.status_code == 201:
             # successful signup - redirect to login page
             current_user = response.json()['User'][0]
-            # -------------------email confirmation-------------------------------------
+            # -------------------email verification-------------------------------------
             current_site = get_current_site(request)
             mail_subject = 'Activate your chamaZetu account.'
             message = render_to_string('chama/activateAccount.html', {
@@ -166,42 +172,53 @@ def membersignup(request):
             from_email = settings.EMAIL_HOST_USER
             to_email = [current_user['email']]
 
-            send_mail(mail_subject, message, from_email, to_email, fail_silently=True)
+            verification_mail=EmailMultiAlternatives(
+                subject=mail_subject,
+                body=message,
+                from_email=from_email,
+                to=to_email
+            )
+            verification_mail.attach_alternative(message, "text/html")
+            verification_mail.send(fail_silently=True)
+
             messages.success(request, 'Account created successfully. Please check your email to activate your account.')
             #  -------------------email confirmation-------------------------------------
-            return HttpResponseRedirect(reverse('signin'))
+            role = role
+            return HttpResponseRedirect(reverse('signin', args=[role]))
 
-    return render(request, 'chama/membersignup.html')
+    page = f'chama/{role}signup.html'
+    return render(request, page)
 
-def managersignup(request):
-    return render(request, 'chama/managersignup.html')
-
-def verify_signup_token(request, token):
+# validation of the signup jwt token (15 min lifespan)
+def verify_signup_token(request, token, role):
     try:
         jwt.decode(token, config('JWT_SECRET'), algorithms=['HS256'])
         return True
     except InvalidTokenError as e:
-        return HttpResponseRedirect(reverse('signin'))
+        return HttpResponseRedirect(reverse('signin', args=[role]))
 
+# the activation link sent to the user's email
 def activate(request, uidb64, token):
     try:
-        uid = force_str(urlsafe_base64_decode(uidb64))
-        user = supabase.table('users').select('*').eq('id', uid)
-        print("----------------user supa----")
-        print(user)
-        print()
+        uid = force_str(urlsafe_base64_decode(uidb64)) # decode the uid to user id
+        user = supabase.table('users').select('*').eq('id', uid).execute()
+
+        role = user.data[0]['is_manager']
+        if role == True:
+            role = 'manager'
+        else:
+            role = 'member'
+
+        user = user.data[0]['id']
+
     except(TypeError, ValueError, OverflowError, User.DoesNotExist):
         user = None
 
-    if user is not None and verify_signup_token(request, token):
-        # activate user and login
-        user['is_verified'] = True
-        supabase.table('users').update(user)
+    if user is not None and verify_signup_token(request, token, role): # validate the jwt token here
+        # activate user and redirect to home page
+        supabase.table('users').update({'is_verified': True}).eq('id', uid).execute()
         messages.success(request, 'Account activated successfully. You can now login.')
-        return HttpResponseRedirect(reverse('signin'))
+        return HttpResponseRedirect(reverse('signin', args=[role]))
     else:
-        # if the token has expired, send another one
+        # if the token has expired, send another one - checking if the user is thne database and unverified
         return HttpResponse('Activation link is invalid!')
-
-def dashboard(request):
-    return render(request, 'chama/dashboard.html')

@@ -1,5 +1,3 @@
-response = {'User': [{'email': 'amos@gmail.com', 'created_at': '2024-01-25T09:24:18.645503'}]}
+response = data=[{'is_manager': False}]
 
-current_user = response['User'][0]
-
-print(current_user['email'])
+print(response.data)

@@ -4,10 +4,8 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='index'),
-    path('signin', views.signin, name='signin'),
-    path('managersignin', views.managersignin, name='managersignin'),
-    path('membersignup', views.membersignup, name='membersignup'),
-    path('managersignup', views.managersignup, name='managersignup'),
+    path('signin/<str:role>', views.signin, name='signin'),
+    path('signup/<str:role>', views.signup, name='signup'),
     path('activate/<uidb64>/<token>', views.activate, name='activate'),
     path('memberdashboard', views.memberdashboard, name='memberdashboard'),
     path('managerdashboard', views.managerdashboard, name='managerdashboard'),
