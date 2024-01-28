@@ -23,7 +23,7 @@
                 <div class="card-body">
 
                   <div class="pt-4 pb-2">
-                    <h5 class="card-title text-center pb-0 fs-4">Member Login</h5>
+                    <h5 class="card-title text-center pb-0 fs-4">Manager Login</h5>
                   </div>
 
                   <form class="row g-3 needs-validation" method="POST" action="{% url 'signin' 'manager' %}">
@@ -32,7 +32,6 @@
                     <div class="col-12">
                       <label for="email" class="form-label">Email</label>
                       <div class="input-group has-validation">
-                        <span class="input-group-text" id="inputGroupPrepend">@</span>
                         <input type="text" name="email" class="form-control" id="email" required>
                         <div class="invalid-feedback">Please enter your email.</div>
                       </div>
@@ -75,12 +74,5 @@
   </main><!-- End #main -->
 
   <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
-  <script>
-    localStorage.setItem('token', '{{ token }}')
-  </script>
+
 {% endblock %}
-
-
-</body>
-
-</html>

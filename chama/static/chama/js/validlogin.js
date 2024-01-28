@@ -1,7 +1,6 @@
 document.addEventListener("DOMContentLoaded", function () {
     const signupform = document.getElementById('signup');
-    const firstname = document.getElementById('firstname');
-    const lastname = document.getElementById('lastname');
+    const username = document.getElementById('username');
     const email = document.getElementById('email');
     const password = document.getElementById('password');
     const password2 = document.getElementById('password2');
@@ -15,22 +14,15 @@ document.addEventListener("DOMContentLoaded", function () {
     function checkInputs() {
         // get the values from the inputs
 
-        const firstnameValue = firstname.value.trim();
-        const lastnameValue = lastname.value.trim();
+        const usernameValue = username.value.trim();
         const emailValue = email.value.trim();
         const passwordValue = password.value.trim();
         const password2Value = password2.value.trim();
 
-        if (firstnameValue === '') {
-            setErrorFor(firstname, 'First name cannot be blank');
+        if (usernameValue === '') {
+            setErrorFor(username, 'username cannot be blank');
         } else {
-            setSuccessFor(firstname);
-        }
-
-        if (lastnameValue === '') {
-            setErrorFor(lastname, 'last name cannot be blank');
-        } else {
-            setSuccessFor(lastname);
+            setSuccessFor(username);
         }
 
         if (emailValue === '') {
@@ -54,7 +46,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (password2Value === '' || password2Value !== passwordValue) {
-            setErrorFor(password2, ' does not match');
+            setErrorFor(password2, 'passwords do not match');
         } else {
             setSuccessFor(password2);
         }
